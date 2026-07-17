@@ -64,10 +64,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             loss = criterion(output, targets)
 
         loss_value = loss.item()
-        if mixup_fn is None:
-            pred = output.argmax(dim=1)
-            correct += pred.eq(original_targets).sum().item()
-            total += original_targets.size(0)
+        
+        pred = output.argmax(dim=1)
+        correct += pred.eq(original_targets).sum().item()
+        total += original_targets.size(0)
 
         if not math.isfinite(loss_value): # this could trigger if using AMP
             print("Loss is {}, stopping training".format(loss_value))
