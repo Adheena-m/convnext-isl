@@ -8,6 +8,7 @@
 
 import math
 from typing import Iterable, Optional
+from scipy import stats
 import torch
 from timm.data import Mixup
 from timm.utils import accuracy, ModelEma
@@ -28,6 +29,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     print_freq = 10
 
     optimizer.zero_grad()
+
+    correct = 0
+    total = 0
 
     for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         step = data_iter_step // update_freq
@@ -57,6 +61,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             loss = criterion(output, targets)
 
         loss_value = loss.item()
+        if mixup_fn is None:
+        pred = output.argmax(dim=1)
+        correct += pred.eq(targets).sum().item()
+        total += targets.size(0)
 
         if not math.isfinite(loss_value): # this could trigger if using AMP
             print("Loss is {}, stopping training".format(loss_value))
@@ -131,8 +139,15 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
+
+    train_acc1 = 100.0 * correct / total
+
+    print("Training Accuracy: {:.2f}%".format(train_acc1))
     print("Averaged stats:", metric_logger)
-    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+    stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    stats["train_acc1"] = train_acc1
+    return stats
 
 @torch.no_grad()
 def evaluate(data_loader, model, device, use_amp=False):
