@@ -49,6 +49,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
+        # Save original labels for training accuracy
+        original_targets = targets.clone()
+
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
@@ -63,8 +66,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         loss_value = loss.item()
         if mixup_fn is None:
             pred = output.argmax(dim=1)
-            correct += pred.eq(targets).sum().item()
-            total += targets.size(0)
+            correct += pred.eq(original_targets).sum().item()
+            total += original_targets.size(0)
 
         if not math.isfinite(loss_value): # this could trigger if using AMP
             print("Loss is {}, stopping training".format(loss_value))
@@ -146,7 +149,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     print("Averaged stats:", metric_logger)
 
     stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-    stats["train_acc1"] = train_acc1
+    stats["acc1"] = train_acc1
     return stats
 
 @torch.no_grad()
